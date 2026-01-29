@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -e
 
 # Set path to workdir
@@ -7,7 +9,7 @@ WP_PATH="/var/www/html"
 if [ -n "$WORDPRESS_DB_PASSWORD_FILE" ] && [ -f "$WORDPRESS_DB_PASSWORD_FILE" ]; then
 	WORDPRESS_DB_PASSWORD=$(cat "$WORDPRESS_DB_PASSWORD_FILE")
 	export WORDPRESS_DB_PASSWORD
-fir
+fi
 
 echo "Setting up WordPress..."
 
@@ -46,7 +48,6 @@ if ( !defined('ABSPATH') )
     define('ABSPATH', __DIR__ . '/');
 
 require_once ABSPATH . 'wp-settings.php';
-?>
 EOF
 
 	# Set secure permissions
