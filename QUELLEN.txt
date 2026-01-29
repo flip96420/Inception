@@ -1,0 +1,2 @@
+https://kinsta.com/de/blog/wordpress-salts/
+http://nginx.org/en/docs/beginners_guide.html
