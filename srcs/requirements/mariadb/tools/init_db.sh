@@ -24,13 +24,17 @@ echo "MariaDB is ready!"
 
 # Run setup SQL: create database and users
 echo "Running setup SQL..."
-mysql --socket=/run/mysqld/mysqld.sock -u root << EOF
+if mysql -u root -e "status" >/dev/null 2>&1; then
+    mysql --socket=/run/mysqld/mysqld.sock -u root << EOF
 ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
 CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};
 CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
 GRANT ALL PRIVILEGES ON ${MYSQL_DATABASE}.* TO '${MYSQL_USER}'@'%';
 FLUSH PRIVILEGES;
 EOF
+else
+    mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "FLUSH PRIVILEGES;"
+fi
 
 # Shut down temporary server
 echo "Shutting down temporary MariaDB..."

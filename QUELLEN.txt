@@ -1,3 +1,0 @@
-https://kinsta.com/de/blog/wordpress-salts/
-http://nginx.org/en/docs/beginners_guide.html
-https://dev.to/alejiri/docker-nginx-wordpress-mariadb-tutorial-inception42-1eok
