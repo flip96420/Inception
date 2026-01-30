@@ -1,64 +1,57 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
-# Set path to workdir
-WP_PATH="/var/www/html"
+# Replace PHP-FPM listen line dynamically
+echo ${WORDPRESS_PORT}
+echo ${MYSQL_TCP_PORT}
+sed -i "s|^listen = .*|listen = 0.0.0.0:${WORDPRESS_PORT}|" /etc/php/8.2/fpm/pool.d/www.conf
 
-# Read password from secrets
-if [ -n "$WORDPRESS_DB_PASSWORD_FILE" ] && [ -f "$WORDPRESS_DB_PASSWORD_FILE" ]; then
-	WORDPRESS_DB_PASSWORD=$(cat "$WORDPRESS_DB_PASSWORD_FILE")
-	export WORDPRESS_DB_PASSWORD
-fi
+# Go to WordPress directory
+cd /var/www/html
 
-echo "Setting up WordPress..."
+# Wait for the database to be ready
+until nc -z "$WORDPRESS_DB_HOST" "$MYSQL_TCP_PORT"; do
+    sleep 4
+done
 
+# Configure WordPress if not already
+if [ ! -f wp-config.php ]; then
+    echo "WordPress not configured. Setting up..."
 
-# Download wordpress if it doesn't exist
-if [ ! -f "$WP_PATH/wp-config.php" ]; then
-    echo "Downloading WordPress..."
-    wget -q https://wordpress.org/latest.tar.gz -O /tmp/wordpress.tar.gz
-    tar -xzf /tmp/wordpress.tar.gz -C /tmp
-    rm /tmp/wordpress.tar.gz
-
-    # Copy only missing files
-    cp -rn /tmp/wordpress/* "$WP_PATH" || true
-    rm -rf /tmp/wordpress
-
-    # Fetch security salts from WordPress API
-    WP_SALTS=$(wget -qO- https://api.wordpress.org/secret-key/1.1/salt/)
+    # Download WordPress
+	if [ ! -f "/var/www/html/wp-settings.php" ]; then
+        wp core download --allow-root
+    fi
 
     # Create wp-config.php
-    cat > "$WP_PATH/wp-config.php" << EOF
-<?php
-define('DB_NAME', '${WORDPRESS_DB_NAME}');
-define('DB_USER', '${WORDPRESS_DB_USER}');
-define('DB_PASSWORD', '${WORDPRESS_DB_PASSWORD}');
-define('DB_HOST', '${WORDPRESS_DB_HOST}');
-define('DB_CHARSET', 'utf8');
-define('DB_COLLATE', '');
+  wp config create \
+        --dbname="$WORDPRESS_DB_NAME" \
+        --dbuser="$WORDPRESS_DB_USER" \
+        --dbpass="$WORDPRESS_DB_PASSWORD" \
+        --dbhost="$WORDPRESS_DB_HOST:$MYSQL_TCP_PORT" \
+        --allow-root
 
-\$table_prefix = '${WORDPRESS_TABLE_PREFIX:-wp_}';
+    # Install WordPress
+    wp core install \
+        --url="$DOMAIN_NAME" \
+        --title="$WORDPRESS_TITLE" \
+        --admin_user="$WORDPRESS_ADMIN_USER" \
+        --admin_password="$WORDPRESS_ADMIN_PW" \
+        --admin_email="$WORDPRESS_ADMIN_EMAIL" \
+        --skip-email \
+        --allow-root
 
-${WP_SALTS}
+    # Optional: create extra user
+    wp user create "$WORDPRESS_USER" "$WORDPRESS_EMAIL" \
+        --user_pass="$WORDPRESS_USER_PW" \
+        --role=author \
+        --allow-root
 
-define('WP_DEBUG', false);
-
-if ( !defined('ABSPATH') )
-    define('ABSPATH', __DIR__ . '/');
-
-require_once ABSPATH . 'wp-settings.php';
-EOF
-
-	# Set secure permissions
-    find "$WP_PATH" -type d -exec chmod 750 {} \;
-    find "$WP_PATH" -type f -exec chmod 640 {} \;
-    chown -R www-data:www-data "$WP_PATH"
-
-    echo "WordPress setup complete."
+    chmod -R 777 /var/www/html
 else
-    echo "WordPress already initialized, skipping setup."
+    echo "WordPress already configured. Continuing..."
 fi
 
-echo "Starting PHP-FPM..."
-exec php-fpm8.2 -F
+# Start PHP-FPM in foreground
+exec /usr/sbin/php-fpm8.2 -F -R

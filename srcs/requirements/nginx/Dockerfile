@@ -14,7 +14,7 @@ RUN usermod -u 33 www-data && groupmod -g 33 www-data
 RUN mkdir -p /etc/nginx/ssl
 
 # Copy files
-COPY conf/nginx.conf /etc/nginx/nginx/.conf
+COPY conf/nginx.conf /etc/nginx/conf.d/default.conf
 COPY tools/generate_ssl.sh /usr/local/bin/
 
 # Enable execute on scripts
